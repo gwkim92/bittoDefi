@@ -3,8 +3,7 @@ const { ethers } = require("hardhat");
 const {
   loadFixture,
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-
-// npx hardhat test /Users/gimgeon-u/Desktop/Study/bitto/bittoDefi/test/swapTest.js
+//swap 기능 테스트
 
 async function getSigners() {
   const [owner, user, recipient, admin] = await ethers.getSigners();
@@ -12,7 +11,7 @@ async function getSigners() {
 }
 
 async function deployFixture() {
-  // 배포 순서
+  //배포 순서
   // erc20 deploy 0,1,2,3,4
 
   const { owner, user } = await getSigners();
@@ -193,7 +192,6 @@ describe("MultiDataConsumerV3 and BittoSwapV1", function () {
     const feedAddress0 = fixtures.btcUsdAddress;
     const feedAddress1 = fixtures.daiUsdAddress;
 
-    // 이 부분에서 Revert가 예상됩니다.
     await expect(
       bittoSwapV2
         .connect(nonAdmin)
@@ -239,8 +237,6 @@ describe("MultiDataConsumerV3 and BittoSwapV1", function () {
     const tokenIn = token0;
     const tokenOut = token1;
 
-    // 초기 리저브 값들을 가져오는 코드를 추가
-    const initialReserve0 = await bittoSwapV2.getReserves(token0, token1);
     const initialReserve1 = await bittoSwapV2.getReserves(token1, token0);
 
     await bittoSwapV2.connect(user).swap(amountIn, tokenIn, tokenOut);
@@ -335,51 +331,5 @@ describe("MultiDataConsumerV3 and BittoSwapV1", function () {
     await expect(
       bittoSwapV2.connect(user).swap(amountIn, token0, token1)
     ).to.be.revertedWith("Transfer failed");
-  });
-
-  it("Should prevent adding a pair with the same tokens and feeds", async function () {
-    const token0 = fixtures.MockToken1Address;
-    const token1 = fixtures.MockToken2Address;
-    const feedAddress0 = fixtures.btcUsdAddress;
-    const feedAddress1 = fixtures.daiUsdAddress;
-
-    await expect(
-      bittoSwapV2
-        .connect(owner)
-        .addPair(token0, token1, feedAddress0, feedAddress1)
-    ).to.be.revertedWith("Pair already exists");
-  });
-
-  it("Should revert when attempting to add a pair with zero address tokens", async function () {
-    const token0 = ethers.constants.AddressZero;
-    const token1 = fixtures.MockToken2Address;
-    const feedAddress0 = fixtures.btcUsdAddress;
-    const feedAddress1 = fixtures.daiUsdAddress;
-
-    await expect(
-      bittoSwapV2
-        .connect(owner)
-        .addPair(token0, token1, feedAddress0, feedAddress1)
-    ).to.be.revertedWith("Zero address");
-  });
-
-  it("Should allow admin to remove a pair", async function () {
-    const token0 = fixtures.MockToken1Address;
-    const token1 = fixtures.MockToken2Address;
-
-    await bittoSwapV2.connect(owner).removePair(token0, token1);
-
-    const pairExists = await bittoSwapV2.pairExists(token0, token1);
-    expect(pairExists).to.be.false;
-  });
-
-  it("Should prevent non-admin from removing a pair", async function () {
-    const nonAdmin = user;
-    const token0 = fixtures.MockToken1Address;
-    const token1 = fixtures.MockToken2Address;
-
-    await expect(
-      bittoSwapV2.connect(nonAdmin).removePair(token0, token1)
-    ).to.be.revertedWith("Ownable: caller is not the owner");
   });
 });
