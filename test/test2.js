@@ -1,204 +1,18 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const {
-  loadFixture,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-
-// npx hardhat test /Users/gimgeon-u/Desktop/Study/bitto/bittoDefi/test/swapTest.js
-
-async function getSigners() {
-  const [owner, admin, user] = await ethers.getSigners();
-  return { owner, admin, user };
-}
-
-async function deployFixture() {
-  const { owner, admin, user } = await getSigners();
-  console.log("owner : ", owner.address, admin.address);
-
-  const btcUsdAddress = process.env.BTCUSDADDRESS;
-  const daiUsdAddress = process.env.DAIUSDADDERSS;
-  const ethUsdAddress = process.env.ETHUSDADDRESS;
-  const linkUsdAddress = process.env.LINKUSDADDRESS;
-  const usdcUsdAddress = process.env.USDCUSDADDRESS;
-
-  const MultiDataConsumerImpl = await ethers.deployContract(
-    "MultiDataConsumerV3"
-  );
-  await MultiDataConsumerImpl.waitForDeployment();
-  const MultiDataConsumerAddress = await MultiDataConsumerImpl.getAddress();
-  console.log("MultiDataConsumerAddress : ", MultiDataConsumerAddress);
-
-  const encodedInitializeData =
-    MultiDataConsumerImpl.interface.encodeFunctionData("initialize", [
-      admin.address,
-    ]);
-
-  const MultiDataConsumerProxyImpl = await ethers.deployContract(
-    "MultiDataConsumerV3Proxy",
-    [MultiDataConsumerAddress, owner.address, encodedInitializeData]
-  );
-  await MultiDataConsumerProxyImpl.waitForDeployment();
-  const MultiDataConsumerProxyAddress =
-    await MultiDataConsumerProxyImpl.getAddress();
-  console.log(
-    "MultiDataConsumerProxyAddress : ",
-    MultiDataConsumerProxyAddress
-  );
-
-  const swapStorageImpl = await ethers.deployContract("BittoSwapStorage", [
-    owner.address,
-  ]);
-  await swapStorageImpl.waitForDeployment();
-  const swapStorageAddress = await swapStorageImpl.getAddress();
-
-  console.log("swapStorageAddress : ", swapStorageAddress);
-
-  const BittoSwapV1Impl = await ethers.deployContract("bittoSwapV1");
-  await BittoSwapV1Impl.waitForDeployment();
-  const swapAddress = await BittoSwapV1Impl.getAddress();
-
-  const encodedInitializeSwapData =
-    BittoSwapV1Impl.interface.encodeFunctionData("initialize", [
-      MultiDataConsumerProxyAddress,
-      swapStorageAddress,
-      admin.address,
-    ]);
-
-  const BittoSwapProxyImpl = await ethers.deployContract("BittoSwapProxy", [
-    swapAddress,
-    owner.address,
-    encodedInitializeSwapData,
-  ]);
-
-  await BittoSwapProxyImpl.waitForDeployment();
-
-  const swapProxyAddress = await BittoSwapProxyImpl.getAddress();
-
-  const MockToken1Impl = await ethers.deployContract("MockToken", [
-    "mock",
-    "mock",
-  ]);
-  await MockToken1Impl.waitForDeployment();
-  const MockToken1Address = await MockToken1Impl.getAddress();
-
-  const MockToken2Impl = await ethers.deployContract("MockToken", [
-    "mock",
-    "mock",
-  ]);
-  await MockToken2Impl.waitForDeployment();
-  const MockToken2Address = await MockToken2Impl.getAddress();
-
-  const MockToken3Impl = await ethers.deployContract("MockToken", [
-    "mock",
-    "mock",
-  ]);
-  await MockToken3Impl.waitForDeployment();
-  const MockToken3Address = await MockToken3Impl.getAddress();
-
-  const MockToken4Impl = await ethers.deployContract("MockToken", [
-    "mock",
-    "mock",
-  ]);
-  await MockToken4Impl.waitForDeployment();
-  const MockToken4Address = await MockToken4Impl.getAddress();
-
-  const MockToken5Impl = await ethers.deployContract("MockToken", [
-    "mock",
-    "mock",
-  ]);
-  await MockToken5Impl.waitForDeployment();
-  const MockToken5Address = await MockToken5Impl.getAddress();
-
-  console.log(
-    "token Address : ",
-    MockToken1Address,
-    MockToken2Address,
-    MockToken3Address,
-    MockToken4Address,
-    MockToken5Address
-  );
-
-  return {
-    MultiDataConsumerImpl,
-    MultiDataConsumerAddress,
-    MultiDataConsumerProxyImpl,
-    MultiDataConsumerProxyAddress,
-    swapStorageImpl,
-    swapStorageAddress,
-    BittoSwapV1Impl,
-    swapAddress,
-    BittoSwapProxyImpl,
-    swapProxyAddress,
-    MockToken1Impl,
-    MockToken2Impl,
-    MockToken3Impl,
-    MockToken4Impl,
-    MockToken5Impl,
-    MockToken1Address,
-    MockToken2Address,
-    MockToken3Address,
-    MockToken4Address,
-    MockToken5Address,
-    btcUsdAddress,
-    daiUsdAddress,
-    ethUsdAddress,
-    linkUsdAddress,
-    usdcUsdAddress,
-    owner,
-    user,
-    admin,
-  };
-}
+const contractDB = require("../dataBase/controller/contractController");
+const addressDB = require("../dataBase/controller/addressController");
 
 describe("MultiDataConsumerV3 and BittoSwapV1", function () {
   this.timeout(1200000);
-  let MultiDataConsumerImpl,
-    MultiDataConsumerAddress,
-    MultiDataConsumerProxyImpl,
-    MultiDataConsumerProxyAddress,
-    BittoSwapV1Impl,
-    swapAddress,
-    BittoSwapProxyImpl,
-    swapProxyAddress,
-    MockToken1Impl,
-    MockToken1Address,
-    MockToken2Address,
-    MockToken3Address,
-    MockToken4Address,
-    btcUsdAddress,
-    daiUsdAddress,
-    ethUsdAddress,
-    linkUsdAddress,
-    usdcUsdAddress,
-    owner,
-    user,
-    admin;
+
   before(async function () {
-    const deployment = await loadFixture(deployFixture);
-    MultiDataConsumerImpl = deployment.MultiDataConsumerImpl;
-    MultiDataConsumerAddress = deployment.MultiDataConsumerAddress;
-    MultiDataConsumerProxyImpl = deployment.MultiDataConsumerProxyImpl;
-    MultiDataConsumerProxyAddress = deployment.MultiDataConsumerProxyAddress;
-    BittoSwapV1Impl = deployment.BittoSwapV1Impl;
-    BittoSwapProxyImpl = deployment.BittoSwapProxyImpl;
-    swapAddress = deployment.swapAddress;
-    swapProxyAddress = deployment.swapProxyAddress;
-    MockToken1Impl = deployment.MockToken1Impl;
-    MockToken1Address = deployment.MockToken1Address;
-    MockToken2Address = deployment.MockToken2Address;
-    MockToken3Address = deployment.MockToken3Address;
-    MockToken4Address = deployment.MockToken4Address;
-    btcUsdAddress = deployment.btcUsdAddress;
-    daiUsdAddress = deployment.daiUsdAddress;
-    ethUsdAddress = deployment.ethUsdAddress;
-    linkUsdAddress = deployment.linkUsdAddress;
-    usdcUsdAddress = deployment.usdcUsdAddress;
-    (owner = deployment.owner),
-      (user = deployment.user),
-      (admin = deployment.admin);
+    const OwnerAddressDB = await addressDB.addresss.getAddressInfo("owner");
+    const AdminAddressDb = await addressDB.addresss.getAddressInfo("admin");
+    const UserAddressDb = await addressDB.addresss.getAddressInfo("user");
+    ///contract Db data get & getContractAt
   });
 
-  //   describe("MultiDataConsumerV3", function () {
   it("Should set the price feed correctly and return the latest price", async function () {
     // Set the price feed for a token (mock token address used here)
     console.log("owner : ", owner.address);
@@ -221,7 +35,6 @@ describe("MultiDataConsumerV3 and BittoSwapV1", function () {
 
     expect(latestPrice).to.not.equal(0); // Or any other assertion that makes sense depending on your mock
   });
-  //   });
 
   it("Should add a pair and perform a swap", async function () {
     // Pair 추가

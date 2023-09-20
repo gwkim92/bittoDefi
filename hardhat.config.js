@@ -7,6 +7,7 @@ const {
   SEPOLIA_INFURA_API_URL,
   SEPOLIA_DEPLOYER_PRIVATE_KEY,
   SEPOLIA_MINTER_PRIVATE_KEY,
+  SEPOLIA_USER_PRIVATE_KEY,
   GOERIL_ALCHEMY_API_URL,
   GOERIL_INFURA_API_URL,
   GOERIL_DEPLOYER_PRIVATE_KEY,
@@ -23,9 +24,11 @@ module.exports = {
     },
     sepolia: {
       url: SEPOLIA_ALCHEMY_API_URL,
+      gasPrice: 20000000000, // 20 gwei
       accounts: [
         `0x${SEPOLIA_DEPLOYER_PRIVATE_KEY}`,
         `0x${SEPOLIA_MINTER_PRIVATE_KEY}`,
+        `0x${SEPOLIA_USER_PRIVATE_KEY}`,
       ],
     },
     goeril: {

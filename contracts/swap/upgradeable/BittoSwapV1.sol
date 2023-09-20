@@ -44,7 +44,8 @@ contract bittoSwapV1 is
     }
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant SWAP_ADMIN_ROLE = keccak256("SWAP_ADMIN_ROLE");
-
+    bytes32 public constant ADDPAIR_ADMIN_ROLE =
+        keccak256("ADDPAIR_ADMIN_ROLE");
     mapping(address => mapping(address => Pair)) public pairs;
 
     IMultiDataConsumerV3 public priceOracle;
@@ -52,7 +53,8 @@ contract bittoSwapV1 is
 
     function initialize(
         address _priceOracle,
-        address _swapStorage
+        address _swapStorage,
+        address _admin
     ) public initializer {
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -60,10 +62,10 @@ contract bittoSwapV1 is
         __AccessControl_init();
 
         // 역할(role) 설정
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(PAUSER_ROLE, _msgSender());
-        _setupRole(SWAP_ADMIN_ROLE, _msgSender());
-
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
+        _setupRole(PAUSER_ROLE, _admin);
+        _setupRole(SWAP_ADMIN_ROLE, _admin);
+        _setupRole(ADDPAIR_ADMIN_ROLE, _admin);
         // Pausable 역할(role) 설정
         _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -81,7 +83,7 @@ contract bittoSwapV1 is
         address _token1,
         address feedAddress0,
         address feedAddress1
-    ) public onlyOwner {
+    ) public onlyRole(ADDPAIR_ADMIN_ROLE) {
         int latestToken0Price = priceOracle.getLatestPrice(feedAddress0);
         int latestToken1Price = priceOracle.getLatestPrice(feedAddress1);
 
