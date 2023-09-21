@@ -1,35 +1,109 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const dotenv = require("dotenv");
+dotenv.config();
 const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
 
+async function getSigners() {
+  const [owner, admin, user] = await ethers.getSigners();
+  return { owner, admin, user };
+}
+
 describe("MultiDataConsumerV3 and BittoSwapV1", function () {
   this.timeout(1200000);
+  let ownerAddress,
+    adminAddress,
+    userAddress,
+    bittoSwapAddress,
+    bittoSwapAbi,
+    bittoSwapProxyAddress,
+    bittoSwapProxyAbi,
+    priceAddress,
+    priceAbi,
+    priceProxyAddress,
+    priceProxyAbi,
+    MockToken1Address,
+    MockToken1Abi,
+    swapInstance,
+    priceInstance,
+    mockToken1Instance,
+    owner,
+    admin,
+    user,
+    btcUsdAddress,
+    daiUsdAddress,
+    ethUsdAddress,
+    linkUsdAddress,
+    usdcUsdAddress;
 
   before(async function () {
+    ({ owner, admin, user } = await getSigners());
+
+    btcUsdAddress = process.env.BTCUSDADDRESS;
+    daiUsdAddress = process.env.DAIUSDADDERSS;
+    ethUsdAddress = process.env.ETHUSDADDRESS;
+    linkUsdAddress = process.env.LINKUSDADDRESS;
+    usdcUsdAddress = process.env.USDCUSDADDRESS;
+
     const OwnerAddressDB = await addressDB.addresss.getAddressInfo("owner");
     const AdminAddressDb = await addressDB.addresss.getAddressInfo("admin");
     const UserAddressDb = await addressDB.addresss.getAddressInfo("user");
+    ownerAddress = OwnerAddressDB.dataValues.address;
+    adminAddress = AdminAddressDb.dataValues.address;
+    userAddress = UserAddressDb.dataValues.address;
+    const bittoSwapV1DB = await contractDB.contracts.getContractInfo(
+      "bittoSwapV1"
+    );
+    const BittoSwapProxyDB = await contractDB.contracts.getContractInfo(
+      "BittoSwapProxy"
+    );
+    const MultiDataConsumerV3DB = await contractDB.contracts.getContractInfo(
+      "MultiDataConsumerV3"
+    );
+    const MultiDataConsumerV3ProxyDB =
+      await contractDB.contracts.getContractInfo("MultiDataConsumerV3Proxy");
+    const MockToken1DB = await contractDB.contracts.getContractInfo(
+      "MockToken1"
+    );
+
+    bittoSwapAddress = await bittoSwapV1DB.dataValues.address;
+    bittoSwapAbi = await bittoSwapV1DB.dataValues.abi;
+    bittoSwapProxyAddress = await BittoSwapProxyDB.dataValues.address;
+    bittoSwapProxyAbi = await BittoSwapProxyDB.dataValues.abi;
+    priceAddress = await MultiDataConsumerV3DB.dataValues.address;
+    priceAbi = await MultiDataConsumerV3DB.dataValues.abi;
+    priceProxyAddress = await MultiDataConsumerV3ProxyDB.dataValues.address;
+    priceProxyAbi = await MultiDataConsumerV3ProxyDB.dataValues.abi;
+    MockToken1Address = await MockToken1DB.dataValues.address;
+    MockToken1Abi = await MockToken1DB.dataValues.abi;
+
+    mockToken1Instance = await ethers.getContractAt(
+      MockToken1Abi,
+      MockToken1Address
+    );
+    priceInstance = new ethers.Contract(priceProxyAddress, priceAbi, admin);
+    swapInstance = new ethers.Contract(
+      bittoSwapProxyAddress,
+      bittoSwapAbi,
+      admin
+    );
+
     ///contract Db data get & getContractAt
   });
 
   it("Should set the price feed correctly and return the latest price", async function () {
     // Set the price feed for a token (mock token address used here)
+    console.log("priceOrcleProxy : ", priceAddress, priceProxyAddress);
     console.log("owner : ", owner.address);
     console.log("admin : ", admin.address);
-    const multiDataConsumer = await ethers.getContractAt(
-      "MultiDataConsumerV3",
-      MultiDataConsumerProxyAddress
-    );
 
-    await multiDataConsumer
+    await priceInstance
       .connect(admin)
       .setPriceFeed(MockToken1Address, btcUsdAddress);
 
     // Get the latest price (this will fail if the mock price feed doesn't behave as expected)
-    const latestPrice = await multiDataConsumer.getLatestPrice(
-      MockToken1Address
-    );
+    const latestPrice = await priceInstance.getLatestPrice(MockToken1Address);
     // Print out the returned value
     console.log(`The latest price is: ${latestPrice.toString()}`);
 
@@ -45,7 +119,7 @@ describe("MultiDataConsumerV3 and BittoSwapV1", function () {
       admin
     );
 
-    await BittoSwapV1.addPair(
+    await swapInstance.addPair(
       MockToken1Address,
       MockToken2Address,
       btcUsdAddress,
