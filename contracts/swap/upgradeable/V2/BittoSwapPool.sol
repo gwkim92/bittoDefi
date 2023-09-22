@@ -26,21 +26,20 @@ contract BittoSwapPool is OwnableUpgradeable, PausableUpgradeable {
     );
 
     function initialize(
-        IERC20Extended _token0,
-        IERC20Extended _token1,
+        address _token0,
+        address _token1,
         uint _reserve0,
         uint _reserve1,
-        BittoSwapPoolStorage _swapStorage
+        address _swapStorage
     ) public initializer {
         __Pausable_init();
         __Ownable_init();
 
-        token0 = _token0;
-        token1 = _token1;
-
+        token0 = IERC20Extended(_token0);
+        token1 = IERC20Extended(_token1);
         reserve0 = normalizeReserve(_reserve0, token0.decimals());
         reserve1 = normalizeReserve(_reserve1, token1.decimals());
-        swapStorage = _swapStorage;
+        swapStorage = BittoSwapPoolStorage(_swapStorage);
     }
 
     // Swap function

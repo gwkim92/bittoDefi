@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IMultiDataConsumerV3 {
     function getLatestPrice(address tokenAddress) external view returns (int);
+
+    function setPriceFeed(address tokenAddress, address feedAddress) external; // Add this line
 }
 
 contract MultiDataConsumerV3 is
@@ -23,9 +25,10 @@ contract MultiDataConsumerV3 is
     function initialize(address _admin) public initializer {
         __Ownable_init();
         __AccessControl_init();
-
-        // Grant the contract deployer the feed setter role
         _setupRole(FEED_SETTER_ROLE, _admin);
+        transferOwnership(_admin);
+        //logicContract owner = admin
+        //proxy contract owner = owner
     }
 
     function setPriceFeed(
@@ -47,5 +50,11 @@ contract MultiDataConsumerV3 is
         ) = priceFeeds[tokenAddress].latestRoundData();
 
         return answer;
+    }
+
+    // In the MultiDataConsumerV3 contract
+
+    function grantFeedSetterRole(address _factory) public onlyOwner {
+        _setupRole(FEED_SETTER_ROLE, _factory);
     }
 }

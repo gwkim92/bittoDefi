@@ -17,7 +17,6 @@ async function main() {
   const MultiDataConsumerV3Address = await MultiDataConsumerV3.getAddress();
   console.log("MultiDataConsumerV3Address  : ", MultiDataConsumerV3Address);
 
-  //initialize setting minter_role = minter,
   const encodedInitializeData =
     MultiDataConsumerV3.interface.encodeFunctionData("initialize", [
       adminAddress,

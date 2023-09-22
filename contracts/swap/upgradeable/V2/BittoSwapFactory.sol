@@ -11,11 +11,12 @@ import "./IERC20Extended.sol"; // Import the interface here
 contract BittoSwapFactory is Ownable, AccessControl {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant SWAP_ADMIN_ROLE = keccak256("SWAP_ADMIN_ROLE");
-
+    event PoolAlreadyExists(address tokenA, address tokenB);
+    event InvalidOraclePrices(int priceA, int priceB);
     // 토큰 쌍에 대응하는 유동성 풀의 주소를 저장하는 매핑
     mapping(address => mapping(address => address)) private pools;
 
-    IMultiDataConsumerV3 private priceOracle;
+    IMultiDataConsumerV3 public priceOracle;
 
     address private bittoSwapPoolLogic;
 
@@ -25,28 +26,31 @@ contract BittoSwapFactory is Ownable, AccessControl {
         address pool
     );
 
-    constructor(IMultiDataConsumerV3 _priceOracle, address _admin) {
-        priceOracle = _priceOracle;
-        // Roles setup...
+    constructor(address _priceOracle, address _admin, address _poolLogic) {
+        priceOracle = IMultiDataConsumerV3(_priceOracle);
         _setupRole(SWAP_ADMIN_ROLE, _admin);
         // Deploy the logic contract and keep its address.
-        bittoSwapPoolLogic = address(new BittoSwapPool());
+        bittoSwapPoolLogic = _poolLogic;
     }
 
     // createPool 함수는 두 개의 토큰과 그들의 가격 피드 주소를 받아서 새로운 유동성 풀을 생성
     function createPool(
-        IERC20Extended _tokenA,
-        IERC20Extended _tokenB,
+        address _tokenA,
+        address _tokenB,
         address feedAddressA,
-        address feedAddressB
+        address feedAddressB,
+        address _swapStorage // Add this parameter
     ) external onlyRole(SWAP_ADMIN_ROLE) returns (address pool) {
         require(
             pools[address(_tokenA)][address(_tokenB)] == address(0),
             "Pool already exists"
         );
 
-        int latestTokenAPrice = priceOracle.getLatestPrice(feedAddressA);
-        int latestTokenBPrice = priceOracle.getLatestPrice(feedAddressB);
+        priceOracle.setPriceFeed(_tokenA, feedAddressA);
+        priceOracle.setPriceFeed(_tokenB, feedAddressB);
+        //setPrice setting
+        int latestTokenAPrice = priceOracle.getLatestPrice(_tokenA);
+        int latestTokenBPrice = priceOracle.getLatestPrice(_tokenB);
 
         require(
             latestTokenAPrice > 0 && latestTokenBPrice > 0,
@@ -57,11 +61,12 @@ contract BittoSwapFactory is Ownable, AccessControl {
 
         // Generate initialization data for the proxy contract
         bytes memory initData = abi.encodeWithSignature(
-            "initialize(IERC20Extended,IERC20Extended,uint256,uint256)",
+            "initialize(address,address,uint256,uint256,address)",
             _tokenA,
             _tokenB,
             ratio * 10000,
-            10000
+            10000,
+            _swapStorage // The storage contract instance
         );
 
         BittoSwapPoolProxy poolProxy = new BittoSwapPoolProxy(

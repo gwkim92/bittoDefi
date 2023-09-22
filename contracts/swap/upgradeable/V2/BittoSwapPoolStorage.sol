@@ -31,8 +31,8 @@ contract BittoSwapPoolStorage is AccessControl {
     // 스왑 기록을 저장하기 위한 매핑
     mapping(uint256 => Swap) public swaps;
 
-    constructor() {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    constructor(address _admin) {
+        _setupRole(SWAP_ADMIN_ROLE, _admin);
     }
 
     modifier onlySwapAdmin() {
