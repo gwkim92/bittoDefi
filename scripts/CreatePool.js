@@ -5,16 +5,9 @@ const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
 const BittoSwapFactoryArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapFactory.sol/BittoSwapFactory.json");
 const BittoSwapPoolArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPool.sol/BittoSwapPool.json");
-const BittoSwapPoolProxyArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPoolProxy.sol/BittoSwapPoolProxy.json");
-const BittoSwapPoolStorageArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPoolStorage.sol/BittoSwapPoolStorage.json");
-
 // npx hardhat run scripts/CreatePool.js --network sepolia
 
-// SwapPoolAddress :  0x1790Bff4DC8571b79f8ccEb438B83248dAD423a0
-// swapFactoryAddress :  0x2EE73945D51F30fefe90059d1220D8746cbEd27c
-// SwapPoolStorageAddress :  0xb700fb3496F2e4602ede6e6905CA755F06f2A457
-
-async function main() {
+async function setup() {
   const [owner, admin, user] = await ethers.getSigners();
   const OwnerAddressDB = await addressDB.addresss.getAddressInfo("owner");
   const AdminAddressDb = await addressDB.addresss.getAddressInfo("admin");
@@ -78,64 +71,41 @@ async function main() {
     admin
   );
 
-  console.log("===Check Role Start===");
-  const SWAP_ADMIN_ROLE = ethers.keccak256(
-    ethers.toUtf8Bytes("SWAP_ADMIN_ROLE")
-  );
-  let hasRole = await swapFactoryInstance.hasRole(
-    SWAP_ADMIN_ROLE,
-    admin.address
-  );
-  console.log(`Does the admin have the SWAP_ADMIN_ROLE?: ${hasRole}`);
-
-  if (!hasRole) {
-    console.error("The provided address does not have the required role!");
-    process.exit(1);
-  }
-
-  console.log("===Check setPriceFeed Role Start===");
-
-  const FEED_SETTER_ROLE = ethers.keccak256(
-    ethers.toUtf8Bytes("FEED_SETTER_ROLE")
-  );
-  let hasRolesFactory = await MultiDataConsumerV3ProxyInstance.hasRole(
-    FEED_SETTER_ROLE,
-    BittoSwapFactoryAddress
-  );
-  console.log(
-    `Does the BittoSwapFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesFactory}`
-  );
-  let hasRolesAdmin = await MultiDataConsumerV3ProxyInstance.hasRole(
-    FEED_SETTER_ROLE,
-    adminAddress
-  );
-  console.log(
-    `Does the BittoSwapFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesAdmin}`
-  );
-
-  if (!hasRole) {
-    console.error("The provided address does not have the required role!");
-    process.exit(1);
-  }
-
-  console.log("===Create Pool Start===");
-
-  console.log(
-    "createPool Data Check : ",
-    MockToken3Address,
-    MockToken4Address,
-    btcUsdAddress,
-    daiUsdAddress,
-    BittoSwapStorageAddress,
-    MultiDataConsumerV3ProxyAddress,
-    BittoSwapFactoryAddress
-  );
-
+  return {
+    swapFactoryInstance: swapFactoryInstance,
+    MultiDataConsumerV3ProxyInstance: MultiDataConsumerV3ProxyInstance,
+    adminAddress: adminAddress,
+    BittoSwapFactoryAddress: BittoSwapFactoryAddress,
+    tokenAddresses: [
+      MockToken1Address,
+      MockToken2Address,
+      MockToken3Address,
+      MockToken4Address,
+      MockToken5Address,
+    ],
+    priceFeedAddresses: [
+      btcUsdAddress,
+      daiUsdAddress,
+      ethUsdAddress,
+      linkUsdAddress,
+      usdcUsdAddress,
+    ],
+    BittoSwapStorageAddress: BittoSwapStorageAddress,
+  };
+}
+async function createTokenPair(
+  swapFactoryInstance,
+  token1Address,
+  token2Address,
+  priceFeed1Address,
+  priceFeed2Address,
+  BittoSwapStorageAddress
+) {
   let result = await swapFactoryInstance.createPool(
-    MockToken3Address,
-    MockToken4Address,
-    btcUsdAddress, // Assuming this is the price feed for MockToken1
-    daiUsdAddress, // Assuming this is the price feed for MockToken2
+    token1Address,
+    token2Address,
+    priceFeed1Address, // Assuming this is the price feed for MockToken1
+    priceFeed2Address, // Assuming this is the price feed for MockToken2
     BittoSwapStorageAddress // The address of the already deployed BittoSwapStorage contract.
   );
 
@@ -144,6 +114,7 @@ async function main() {
   let receipt = await result.wait(); // Wait for the transaction to be mined.
 
   console.log("receipt : ", receipt);
+
   // Get a filter for the "PoolCreated" event.
   let filter = swapFactoryInstance.filters.PoolCreated();
 
@@ -151,7 +122,7 @@ async function main() {
   let events = await swapFactoryInstance.queryFilter(filter, "latest");
 
   if (events.length > 0) {
-    let event = events[0]; // If there are multiple events, you might need to find the correct one.
+    let event = events[0];
 
     console.log("Event found: ", event);
 
@@ -160,15 +131,97 @@ async function main() {
     if (event.args && event.args.pool) {
       poolAddress = event.args.pool;
     } else if (event.topics && event.topics[2]) {
-      // If the pool address is in the topics field.
       poolAddress = ethers.utils.getAddress(event.topics[2]);
     }
 
     console.log("The address of the newly created pool is:", poolAddress);
+
+    return poolAddress;
   } else {
-    console.error("'PoolCreated' event not found.");
+    throw new Error("'PoolCreated' event not found.");
   }
 }
+//db moduel
+async function savePoolToDatabase(contractName, contractVersion, poolAddress) {
+  await contractDB.contracts.saveContractInfo(
+    "eth",
+    `${contractName}_pair`,
+    contractVersion,
+    poolAddress,
+    BittoSwapPoolArtifacts.abi
+  );
+}
+
+async function main() {
+  try {
+    let {
+      swapFactoryInstance,
+      MultiDataConsumerV3ProxyInstance,
+      adminAddress,
+      BittoSwapFactoryAddress,
+      tokenAddresses,
+      priceFeedAddresses,
+      BittoSwapStorageAddress,
+    } = await setup();
+
+    // Check roles
+
+    console.log("===Check Role Start===");
+    const SWAP_ADMIN_ROLE = ethers.keccak256(
+      ethers.toUtf8Bytes("SWAP_ADMIN_ROLE")
+    );
+    let hasRole = await swapFactoryInstance.hasRole(
+      SWAP_ADMIN_ROLE,
+      adminAddress
+    );
+    console.log(`Does the admin have the SWAP_ADMIN_ROLE?: ${hasRole}`);
+
+    if (!hasRole) {
+      console.error("The provided address does not have the required role!");
+      process.exit(1);
+    }
+
+    console.log("===Check setPriceFeed Role Start===");
+
+    const FEED_SETTER_ROLE = ethers.keccak256(
+      ethers.toUtf8Bytes("FEED_SETTER_ROLE")
+    );
+    let hasRolesFactory = await MultiDataConsumerV3ProxyInstance.hasRole(
+      FEED_SETTER_ROLE,
+      BittoSwapFactoryAddress
+    );
+    console.log(
+      `Does the BittoSwapFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesFactory}`
+    );
+    let hasRolesAdmin = await MultiDataConsumerV3ProxyInstance.hasRole(
+      FEED_SETTER_ROLE,
+      adminAddress
+    );
+    console.log(
+      `Does the BittoSwapFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesAdmin}`
+    );
+
+    if (!hasRole) {
+      console.error("The provided address does not have the required role!");
+      process.exit(1);
+    }
+
+    let pair2Addrress = await createTokenPair(
+      swapFactoryInstance,
+      tokenAddresses[2],
+      tokenAddresses[3],
+      priceFeedAddresses[2],
+      priceFeedAddresses[3],
+      BittoSwapStorageAddress
+    );
+    if (!pair2Addrress) throw new Error("Failed to create the pool.");
+
+    await savePoolToDatabase("eth/link", "1.0", pair2Addrress);
+  } catch (error) {
+    console.error(`Error occurred: ${error.message}`);
+  }
+}
+
 main()
   .then(() => process.exit(0))
   .catch((error) => {

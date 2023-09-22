@@ -2,79 +2,93 @@ const { ethers } = require("hardhat");
 
 const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
-const SwapStorageAddressArtifacts = require("../artifacts/contracts/swap/upgradeable/BittoSwapStorage.sol/BittoSwapStorage.json");
-const BittoSwapV1Artifacts = require("../artifacts/contracts/swap/upgradeable/BittoSwapV1.sol/bittoSwapV1.json");
-const BittoSwapProxyArtifacts = require("../artifacts/contracts/swap/upgradeable/BittoSwapProxy.sol/BittoSwapProxy.json");
+
+const BittoSwapFactoryArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapFactory.sol/BittoSwapFactory.json");
+const BittoSwapPoolArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPool.sol/BittoSwapPool.json");
+const BittoSwapPoolProxyArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPoolProxy.sol/BittoSwapPoolProxy.json");
+const BittoSwapPoolStorageArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPoolStorage.sol/BittoSwapPoolStorage.json");
 
 // npx hardhat run scripts/SwapDeploy.js --network sepolia
 async function main() {
+  const [owner, admin, user] = await ethers.getSigners();
   const OwnerAddressDB = await addressDB.addresss.getAddressInfo("owner");
   const AdminAddressDb = await addressDB.addresss.getAddressInfo("admin");
   let ownerAddress = OwnerAddressDB.dataValues.address;
   let adminAddress = AdminAddressDb.dataValues.address;
 
+  const MultiDataConsumerV3DB = await contractDB.contracts.getContractInfo(
+    "MultiDataConsumerV3"
+  );
+  let MultiDataConsumerV3Abi = MultiDataConsumerV3DB.dataValues.abi;
   const MultiDataConsumerV3ProxyDB = await contractDB.contracts.getContractInfo(
     "MultiDataConsumerV3Proxy"
   );
   let MultiDataConsumerV3ProxyAddress =
     MultiDataConsumerV3ProxyDB.dataValues.address;
-  //swapStorage
-  const swapStorageImpl = await ethers.deployContract("BittoSwapStorage", [
-    ownerAddress,
+
+  //proxyAddress, logicAbi, Admin
+  const MultiDataConsumerV3ProxyImpl = new ethers.Contract(
+    MultiDataConsumerV3ProxyAddress,
+    MultiDataConsumerV3Abi,
+    admin
+  );
+
+  //swap pool deploy
+  //not need
+  const SwapPoolImpl = await ethers.deployContract("BittoSwapPool");
+  await SwapPoolImpl.waitForDeployment();
+  const SwapPoolAddress = await SwapPoolImpl.getAddress();
+
+  //swap Factory deploy
+  //need price oracle, pool logic
+  const swapFactoryImpl = await ethers.deployContract("BittoSwapFactory", [
+    MultiDataConsumerV3ProxyAddress,
+    adminAddress,
+    SwapPoolAddress,
   ]);
-  await swapStorageImpl.waitForDeployment();
-  const swapStorageAddress = await swapStorageImpl.getAddress();
+  await swapFactoryImpl.waitForDeployment();
+  const swapFactoryAddress = await swapFactoryImpl.getAddress();
 
-  console.log("swapStorageAddress : ", swapStorageAddress);
+  // After deploying the factory contract...
+  await MultiDataConsumerV3ProxyImpl.grantFeedSetterRole(swapFactoryAddress);
 
-  const BittoSwapV1Impl = await ethers.deployContract("bittoSwapV1");
-  await BittoSwapV1Impl.waitForDeployment();
-  const swapAddress = await BittoSwapV1Impl.getAddress();
+  //swap storage deploy
+  const SwapPoolStorageImpl = await ethers.deployContract(
+    "BittoSwapPoolStorage",
+    [adminAddress]
+  );
+  await SwapPoolStorageImpl.waitForDeployment();
+  const SwapPoolStorageAddress = await SwapPoolStorageImpl.getAddress();
 
-  const encodedInitializeSwapData =
-    BittoSwapV1Impl.interface.encodeFunctionData("initialize", [
-      MultiDataConsumerV3ProxyAddress,
-      swapStorageAddress,
-      adminAddress,
-    ]);
+  console.log("SwapPoolAddress : ", SwapPoolAddress);
+  console.log("swapFactoryAddress : ", swapFactoryAddress);
+  console.log("SwapPoolStorageAddress : ", SwapPoolStorageAddress);
 
-  const BittoSwapProxyImpl = await ethers.deployContract("BittoSwapProxy", [
-    swapAddress,
-    ownerAddress,
-    encodedInitializeSwapData,
-  ]);
+  await contractDB.contracts.saveContractInfo(
+    "eth",
+    "BittoSwapPool",
+    "1.0",
+    SwapPoolAddress,
+    BittoSwapPoolArtifacts.abi
+  );
 
-  await BittoSwapProxyImpl.waitForDeployment();
-
-  const swapProxyAddress = await BittoSwapProxyImpl.getAddress();
+  await contractDB.contracts.saveContractInfo(
+    "eth",
+    "BittoSwapFactory",
+    "1.0",
+    swapFactoryAddress,
+    BittoSwapFactoryArtifacts.abi
+  );
 
   await contractDB.contracts.saveContractInfo(
     "eth",
     "BittoSwapStorage",
     "1.0",
-    swapStorageAddress,
-    SwapStorageAddressArtifacts.abi
+    SwapPoolStorageAddress,
+    BittoSwapPoolStorageArtifacts.abi
   );
-
-  await contractDB.contracts.saveContractInfo(
-    "eth",
-    "bittoSwapV1",
-    "1.0",
-    swapAddress,
-    BittoSwapV1Artifacts.abi
-  );
-
-  await contractDB.contracts.saveContractInfo(
-    "eth",
-    "BittoSwapProxy",
-    "1.0",
-    swapProxyAddress,
-    BittoSwapProxyArtifacts.abi
-  );
-
   console.log("== deploy completed ==");
 }
-
 main()
   .then(() => process.exit(0))
   .catch((error) => {
