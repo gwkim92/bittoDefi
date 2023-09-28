@@ -3,7 +3,7 @@ pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "../../tokenPrice/MultiDataConsumerV3.sol";
+import "../priceOracle/MultiDataConsumerV3.sol";
 import "./BittoSwapPoolProxy.sol";
 import "./BittoSwapPool.sol";
 

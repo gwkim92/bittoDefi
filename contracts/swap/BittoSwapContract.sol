@@ -2,10 +2,17 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./BittoSwapPool.sol";
+import "../pool/BittoSwapPool.sol";
 
 contract BittoSwapContract {
     BittoSwapPool public swapPool;
+    event Swap(
+        address indexed sender,
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint amountIn,
+        uint amountOut
+    );
 
     constructor(address _swapPoolAddress) {
         swapPool = BittoSwapPool(_swapPoolAddress);
@@ -56,5 +63,6 @@ contract BittoSwapContract {
             // Now we can add the received Token B to the pool's reserves.
             IERC20(_tokenIn).transfer(address(swapPool), amountIn);
         }
+        emit Swap(msg.sender, _tokenIn, _tokenOut, amountIn, outputAmount);
     }
 }

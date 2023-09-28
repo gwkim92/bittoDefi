@@ -4,7 +4,7 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./LiquidityNFT.sol";
-import "../../tokenPrice/MultiDataConsumerV3.sol";
+import "../priceOracle/MultiDataConsumerV3.sol";
 
 contract BittoSwapPool is Ownable {
     IERC20 public token0;
@@ -21,14 +21,6 @@ contract BittoSwapPool is Ownable {
     mapping(uint => uint) private lastClaimedBlockNumber;
 
     int constant deviationTolerance = 5; // This value should be set according to your requirements.
-
-    event Swap(
-        address indexed sender,
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint amountIn,
-        uint amountOut
-    );
 
     event LiqudityAdded(address indexed provider, uint amountA, uint amountB);
     event LiquidityRemoved(address indexed provider, uint tokenId);

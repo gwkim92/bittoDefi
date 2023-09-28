@@ -31,20 +31,20 @@ async function main() {
   const MultiDataConsumerProxyAddress =
     await MultiDataConsumerProxyImpl.getAddress();
 
-  await contractDB.contracts.saveContractInfo(
-    "eth",
-    "MultiDataConsumerV3",
-    "1.0",
-    MultiDataConsumerV3Address,
-    MultiDataConsumerArtifacts.abi
-  );
+  // await contractDB.contracts.saveContractInfo(
+  //   "eth",
+  //   "MultiDataConsumerV3",
+  //   "1.0",
+  //   MultiDataConsumerV3Address,
+  //   MultiDataConsumerArtifacts.abi
+  // );
 
   await contractDB.contracts.saveContractInfo(
     "eth",
     "MultiDataConsumerV3Proxy",
     "1.0",
     MultiDataConsumerProxyAddress,
-    MultiDataConsumerProxyArtifacts.abi
+    MultiDataConsumerArtifacts.abi
   );
 
   console.log("== deploy completed ==");
