@@ -89,9 +89,7 @@ contract BittoSwapPool is Ownable {
 
         reserve0 += amountA;
         reserve1 += amountB;
-
         totalLiqudity += (amountA + amountB);
-
         liquidityNFT.mint(msg.sender, (amountA + amountB));
 
         emit LiqudityAdded(msg.sender, amountA, amountB);
@@ -118,11 +116,8 @@ contract BittoSwapPool is Ownable {
 
         reserve0 -= amounToReturnTokenA;
         reserve1 -= amounToReturnTokenB;
-
         totalLiqudity -= (amounToReturnTokenA + amounToReturnTokenB);
-
         liquidityNFT.burn(tokenId);
-
         emit LiquidityRemoved(msg.sender, tokenId);
     }
 
@@ -147,7 +142,6 @@ contract BittoSwapPool is Ownable {
         //userReward: 사용자에게 지급할 보상금
         uint userReward = ((rewardPerBlock * numberOfBlocks) * userLiquidity) /
             totalSupply;
-
         // Update the last claimed block number.
         lastClaimedBlockNumber[tokenId] = block.number;
 
@@ -156,7 +150,6 @@ contract BittoSwapPool is Ownable {
             rewardToken.transfer(msg.sender, userReward),
             "Reward transfer failed."
         );
-
         // Transfer the rewards.
         rewardToken.transfer(msg.sender, userReward);
     }
@@ -164,5 +157,14 @@ contract BittoSwapPool is Ownable {
     // Helper function to calculate absolute value of an integer.
     function abs(int x) internal pure returns (int) {
         return x >= 0 ? x : -x;
+    }
+
+    function updateReserves(uint256 _reserve0, uint256 _reserve1) external {
+        // require(
+        //     msg.sender == address(factory),
+        //     "Only factory can update reserves"
+        // );
+        reserve0 = _reserve0;
+        reserve1 = _reserve1;
     }
 }

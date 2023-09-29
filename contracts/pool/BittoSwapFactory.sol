@@ -96,4 +96,11 @@ contract BittoSwapFactory is Ownable, AccessControl {
 
         bittoSwapPoolLogic = newLogicContract;
     }
+
+    function getPool(
+        address tokenA,
+        address tokenB
+    ) external view returns (address) {
+        return pools[tokenA][tokenB];
+    }
 }

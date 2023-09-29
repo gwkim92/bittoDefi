@@ -2,10 +2,10 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../pool/BittoSwapFactory.sol";
 import "../pool/BittoSwapPool.sol";
 
 contract BittoSwapContract {
-    BittoSwapPool public swapPool;
     event Swap(
         address indexed sender,
         address indexed tokenIn,
@@ -14,55 +14,61 @@ contract BittoSwapContract {
         uint amountOut
     );
 
-    constructor(address _swapPoolAddress) {
-        swapPool = BittoSwapPool(_swapPoolAddress);
+    BittoSwapFactory public factory;
+
+    constructor(BittoSwapFactory _factory) {
+        factory = _factory;
     }
 
-    function swap(uint amountIn, address _tokenIn, address _tokenOut) external {
+    function swap(
+        uint amountIn,
+        uint minAmountOut,
+        address _tokenIn,
+        address _tokenOut
+    ) external {
+        address poolAddress = factory.getPool(_tokenIn, _tokenOut);
+        require(poolAddress != address(0), "Pool does not exist");
+
+        BittoSwapPool pool = BittoSwapPool(poolAddress);
+
         require(
-            (_tokenIn == address(swapPool.token0()) &&
-                _tokenOut == address(swapPool.token1())) ||
-                (_tokenIn == address(swapPool.token1()) &&
-                    _tokenOut == address(swapPool.token0())),
+            (_tokenIn == address(pool.token0()) &&
+                _tokenOut == address(pool.token1())) ||
+                (_tokenIn == address(pool.token1()) &&
+                    _tokenOut == address(pool.token0())),
             "Invalid input/output tokens"
         );
 
-        // Transfer tokens to this contract
-        require(
-            IERC20(_tokenIn).transferFrom(msg.sender, address(this), amountIn),
-            "Transfer failed"
-        );
+        uint256 outputAmount;
+        uint256 newReserve0;
+        uint256 newReserve1;
 
         // Calculate output amount based on reserves and input amount
-        uint outputAmount;
-
-        if (_tokenIn == address(swapPool.token0())) {
+        if (_tokenIn == address(pool.token0())) {
             outputAmount =
-                (swapPool.reserve1() * amountIn) /
-                (swapPool.reserve0() + amountIn);
-
-            // Transfer the corresponding amount of Token B back to the user.
-            require(
-                IERC20(_tokenOut).transfer(msg.sender, outputAmount),
-                "Transfer failed"
-            );
-
-            // Now we can add the received Token A to the pool's reserves.
-            IERC20(_tokenIn).transfer(address(swapPool), amountIn);
+                (pool.reserve1() * amountIn) /
+                (pool.reserve0() + amountIn);
+            newReserve0 = pool.reserve0() + amountIn;
+            newReserve1 = pool.reserve1() - outputAmount;
         } else {
             outputAmount =
-                (swapPool.reserve0() * amountIn) /
-                (swapPool.reserve1() + amountIn);
-
-            // Transfer the corresponding amount of Token A back to the user.
-            require(
-                IERC20(_tokenOut).transfer(msg.sender, outputAmount),
-                "Transfer failed"
-            );
-
-            // Now we can add the received Token B to the pool's reserves.
-            IERC20(_tokenIn).transfer(address(swapPool), amountIn);
+                (pool.reserve0() * amountIn) /
+                (pool.reserve1() + amountIn);
+            newReserve0 = pool.reserve0() - outputAmount;
+            newReserve1 = pool.reserve1() + amountIn;
         }
+
+        require(outputAmount >= minAmountOut, "Insufficient output amount");
+
+        // Transfer tokens to pool contract
+        IERC20(_tokenIn).transferFrom(msg.sender, poolAddress, amountIn);
+
+        // Update reserves in the pool
+        pool.updateReserves(newReserve0, newReserve1);
+
+        // Transfer output tokens to the user
+        IERC20(_tokenOut).transfer(msg.sender, outputAmount);
+
         emit Swap(msg.sender, _tokenIn, _tokenOut, amountIn, outputAmount);
     }
 }
