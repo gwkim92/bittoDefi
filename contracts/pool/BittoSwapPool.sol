@@ -2,11 +2,11 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./LiquidityNFT.sol";
 import "../priceOracle/MultiDataConsumerV3.sol";
 
-contract BittoSwapPool is Ownable {
+contract BittoSwapPool is Initializable {
     IERC20 public token0;
     IERC20 public token1;
     LiquidityNFT public liquidityNFT;
@@ -31,7 +31,7 @@ contract BittoSwapPool is Ownable {
         address _liqudityNFTAddress,
         address _rewardToken,
         address _priceOracle
-    ) external onlyOwner {
+    ) external initializer {
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
         liquidityNFT = LiquidityNFT(_liqudityNFTAddress);

@@ -1,8 +1,7 @@
 const { ethers } = require("hardhat");
 const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
-const MultiDataConsumerArtifacts = require("../artifacts/contracts/swap/tokenPrice/MultiDataConsumerV3.sol/MultiDataConsumerV3.json");
-const MultiDataConsumerProxyArtifacts = require("../artifacts/contracts/swap/tokenPrice/MultiDataConsumerV3Proxy.sol/MultiDataConsumerV3Proxy.json");
+const MultiDataConsumerArtifacts = require("../artifacts/contracts/priceOracle/MultiDataConsumerV3.sol/MultiDataConsumerV3.json");
 
 // npx hardhat run scripts/MultiDataDeploy.js --network sepolia
 async function main() {
@@ -30,14 +29,6 @@ async function main() {
   await MultiDataConsumerProxyImpl.waitForDeployment();
   const MultiDataConsumerProxyAddress =
     await MultiDataConsumerProxyImpl.getAddress();
-
-  // await contractDB.contracts.saveContractInfo(
-  //   "eth",
-  //   "MultiDataConsumerV3",
-  //   "1.0",
-  //   MultiDataConsumerV3Address,
-  //   MultiDataConsumerArtifacts.abi
-  // );
 
   await contractDB.contracts.saveContractInfo(
     "eth",

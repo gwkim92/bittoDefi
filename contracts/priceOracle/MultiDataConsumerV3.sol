@@ -54,7 +54,9 @@ contract MultiDataConsumerV3 is
 
     // In the MultiDataConsumerV3 contract
 
-    function grantFeedSetterRole(address _factory) public onlyOwner {
+    function grantFeedSetterRole(
+        address _factory
+    ) public onlyRole(FEED_SETTER_ROLE) {
         _setupRole(FEED_SETTER_ROLE, _factory);
     }
 }

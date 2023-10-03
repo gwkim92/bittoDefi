@@ -7,9 +7,9 @@ import "../priceOracle/MultiDataConsumerV3.sol";
 import "./BittoSwapPoolProxy.sol";
 import "./BittoSwapPool.sol";
 
-contract BittoSwapFactory is Ownable, AccessControl {
+contract BittoPoolFactory is Ownable, AccessControl {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant SWAP_ADMIN_ROLE = keccak256("SWAP_ADMIN_ROLE");
+    bytes32 public constant CREATEPOOL_ROLE = keccak256("CREATEPOOL_ROLE");
 
     mapping(address => mapping(address => address)) private pools;
 
@@ -38,7 +38,7 @@ contract BittoSwapFactory is Ownable, AccessControl {
         require(_liquidityNFT != address(0), "Invalid liquidity NFT address");
 
         priceOracle = IMultiDataConsumerV3(_priceOracle);
-        _setupRole(SWAP_ADMIN_ROLE, _admin);
+        _setupRole(CREATEPOOL_ROLE, _admin);
 
         bittoSwapPoolLogic = _poolLogic;
         rewardToken = IERC20(_rewardToken);
@@ -50,7 +50,7 @@ contract BittoSwapFactory is Ownable, AccessControl {
         address _tokenB,
         address feedAddressA,
         address feedAddressB
-    ) external onlyRole(SWAP_ADMIN_ROLE) returns (address pool) {
+    ) external onlyRole(CREATEPOOL_ROLE) returns (address pool) {
         require(pools[_tokenA][_tokenB] == address(0), "Pool already exists");
 
         require(
