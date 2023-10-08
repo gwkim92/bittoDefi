@@ -20,7 +20,7 @@ contract BittoSwapPool is Initializable {
     // Mapping to keep track of the last block number when each user claimed rewards.
     mapping(uint => uint) private lastClaimedBlockNumber;
 
-    int constant deviationTolerance = 5; // This value should be set according to your requirements.
+    int constant deviationTolerance = 1; // This value should be set according to your requirements.
 
     event LiqudityAdded(address indexed provider, uint amountA, uint amountB);
     event LiquidityRemoved(address indexed provider, uint tokenId);
@@ -59,8 +59,7 @@ contract BittoSwapPool is Initializable {
                 (latestTokenBPrice * int(amountB));
 
             require(
-                abs(expectedRatio - int(amountA / amountB)) <=
-                    deviationTolerance,
+                expectedRatio <= deviationTolerance,
                 "Provided amounts do not match expected ratio"
             );
         } else {
@@ -69,8 +68,7 @@ contract BittoSwapPool is Initializable {
                 (int(reserve1) * int(amountB));
 
             require(
-                abs(currentRatio - int(amountA / amountB)) <=
-                    deviationTolerance,
+                currentRatio <= deviationTolerance,
                 "Provided amounts do not match pool's ratio"
             );
         }
