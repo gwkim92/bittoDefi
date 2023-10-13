@@ -4,7 +4,8 @@ dotenv.config();
 const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
 
-//npx hardhat run test/liquidity_Test2.js --network sepolia
+//npx hardhat run test/seconde_liquidity.js --network sepolia
+
 async function main() {
   const [owner, admin, user] = await ethers.getSigners();
   const userAddressDb = await addressDB.addresss.getAddressInfo("user");
@@ -17,49 +18,74 @@ async function main() {
   let token1Abi = token1DB.dataValues.abi;
   let token2Address = token2DB.dataValues.address;
   let token2Abi = token2DB.dataValues.abi;
+
   let poolDB = await contractDB.contracts.getContractInfo("ethLink_Pool_pair");
+
   let poolAddress = poolDB.dataValues.address;
+
   let poolAbi = poolDB.dataValues.abi;
+
   let priceOracleDbData = await contractDB.contracts.getContractInfo(
     "MultiDataConsumerV3Proxy"
   );
   let priceOracleAddress = priceOracleDbData.dataValues.address;
   let priceOracleAbi = priceOracleDbData.dataValues.abi;
 
-  const pool = new ethers.Contract(poolAddress, poolAbi, user);
-
-  // Attach to the Price Oracle contract
   const priceOracle = new ethers.Contract(
     priceOracleAddress,
     priceOracleAbi,
     user
   );
+  const pool = new ethers.Contract(poolAddress, poolAbi, user);
+
+  // Get the current reserves directly from the contrac
+
+  const currentReserve0 = await pool.reserve0();
+  const currentReserve1 = await pool.reserve1();
+  console.log(".currentReserve0 : ", currentReserve0);
+  console.log(".currentReserve1 : ", currentReserve1);
 
   const amountA = ethers.parseUnits("10", 18); // Define the amounts to be provided.
-  console.log("amountA : ", amountA);
+  console.log(".amountA : ", amountA);
   console.log(typeof amountA);
 
-  // Calculate the expected ratio based on oracle prices
+  const tokenA = new ethers.Contract(token1Address, token1Abi, user);
+  const tokenB = new ethers.Contract(token2Address, token2Abi, user);
+
+  // Check if the user has enough tokens to provide liquidity
+  const balanceTokenA = await tokenA.balanceOf(userAddress);
+  const balanceTokenB = await tokenB.balanceOf(userAddress);
+
   const latestTokenAPrice = await priceOracle.getLatestPrice(token1Address);
   const latestTokenBPrice = await priceOracle.getLatestPrice(token2Address);
 
-  console.log("latestTokenAPrice :", latestTokenAPrice);
-  console.log("latestTokenBPrice :", latestTokenBPrice);
-  console.log(typeof latestTokenAPrice);
-  // 소수점 이하 8자리로 가격 데이터를 표시
+  //리저브 비율 조회
+  //reserve0, reserve1 (현재 토큰량)
+  //tokenPrice0, tokenPrice1 조회
+  //reserve0 * tokenPrice0 = reserve1 * tokenPirce1
+  // const 절대량 = (reserve0 * tokenPrice0) - (reserve1 * tokenPrice1)
+  // 음수인지 양수인지 확인
+  // 음수이면 tokenA 의 비율이 모자람 =>
+  // |절대량| + 추가 토큰a 제공량 => 추가 토큰a 제공량(amountA * tokenPriceA)/tokenPriceB = amountB 만큼 자동 계산 반환
+  // 양수이면 tokenB의 비율이 모자람 =>
+  // |절대량| + 추가 토큰a 제공량 => 추가 토큰a 제공량(amountA * tokenPriceA)/tokenPriceB = amountB 만큼 자동 계산 반환 의 반대
+  // 0 이면 비율이 같음
 
-  // Calculate amountB using floating point arithmetic
-  let amountB = (amountA * latestTokenAPrice) / latestTokenBPrice;
-  console.log("amount B : ", amountB.toString()); // 결과를 문자열로 출력
-  console.log(typeof amountB);
+  const imbalance =
+    currentReserve0 * latestTokenAPrice - currentReserve1 * latestTokenBPrice;
+  let amountB;
 
-  const expectedRatio =
-    (latestTokenAPrice * amountA) / (latestTokenBPrice * amountB);
-  console.log("Expected Ratio:", expectedRatio);
+  if (imbalance < 0) {
+    amountB =
+      (Math.abs(imbalance) + amountA * latestTokenAPrice) / latestTokenBPrice;
+  } else if (imbalance > 0) {
+    amountB =
+      (amountA * latestTokenAPrice - Math.abs(imbalance)) / latestTokenBPrice;
+  } else {
+    amountB = (amountA * latestTokenAPrice) / latestTokenBPrice;
+  }
 
-  const tokenRatio = amountA / amountB;
-  console.log("tokenRatio : ", tokenRatio);
-
+  console.log("amountB : ", amountB);
   // Provide liquidity
   try {
     await provideLiquidity(amountA, amountB);
@@ -73,7 +99,6 @@ async function main() {
     console.log("amount A, B : ", amountA, amountB);
     const TokenA = new ethers.Contract(token1Address, token1Abi, owner);
     const TokenB = new ethers.Contract(token2Address, token2Abi, owner);
-
     let tx = await TokenA.mint(userAddress, amountA);
     let receipt = await tx.wait();
     if (receipt.status == 1) {
