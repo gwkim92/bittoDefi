@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
 const getCommonInfo = require("./commonDbInfos");
-const sawpArtifacts = require("../artifacts/contracts/swap/BittoSwapContract.sol");
+const sawpArtifacts = require("../artifacts/contracts/swap/BittoSwapContract.sol/BittoSwapContract.json");
 
 // npx hardhat run scripts/poolLogic_Deploy
 

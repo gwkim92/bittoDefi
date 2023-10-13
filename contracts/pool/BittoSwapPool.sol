@@ -2,11 +2,11 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./LiquidityNFT.sol";
 import "../priceOracle/MultiDataConsumerV3.sol";
 
-contract BittoSwapPool is Ownable {
+contract BittoSwapPool is Initializable {
     IERC20 public token0;
     IERC20 public token1;
     LiquidityNFT public liquidityNFT;
@@ -20,7 +20,7 @@ contract BittoSwapPool is Ownable {
     // Mapping to keep track of the last block number when each user claimed rewards.
     mapping(uint => uint) private lastClaimedBlockNumber;
 
-    int constant deviationTolerance = 5; // This value should be set according to your requirements.
+    int constant deviationTolerance = 1; // This value should be set according to your requirements.
 
     event LiqudityAdded(address indexed provider, uint amountA, uint amountB);
     event LiquidityRemoved(address indexed provider, uint tokenId);
@@ -31,7 +31,7 @@ contract BittoSwapPool is Ownable {
         address _liqudityNFTAddress,
         address _rewardToken,
         address _priceOracle
-    ) external onlyOwner {
+    ) external initializer {
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
         liquidityNFT = LiquidityNFT(_liqudityNFTAddress);
@@ -59,19 +59,8 @@ contract BittoSwapPool is Ownable {
                 (latestTokenBPrice * int(amountB));
 
             require(
-                abs(expectedRatio - int(amountA / amountB)) <=
-                    deviationTolerance,
+                expectedRatio <= deviationTolerance,
                 "Provided amounts do not match expected ratio"
-            );
-        } else {
-            // Calculate the current pool's ratio.
-            int currentRatio = (int(reserve0) * int(amountA)) /
-                (int(reserve1) * int(amountB));
-
-            require(
-                abs(currentRatio - int(amountA / amountB)) <=
-                    deviationTolerance,
-                "Provided amounts do not match pool's ratio"
             );
         }
 
@@ -90,18 +79,17 @@ contract BittoSwapPool is Ownable {
         reserve0 += amountA;
         reserve1 += amountB;
         totalLiqudity += (amountA + amountB);
-        liquidityNFT.mint(msg.sender, (amountA + amountB));
+        liquidityNFT.mint(msg.sender, amountA, amountB);
 
         emit LiqudityAdded(msg.sender, amountA, amountB);
     }
 
     function removeLiquidity(uint tokenId) external {
-        uint256 userShare = liquidityNFT.getLiquidity(tokenId);
+        (uint userShareTokenA, uint userShareTokenB) = liquidityNFT
+            .getLiqudityAmounts(tokenId);
 
-        require(userShare > 0, "No liquidity found");
-
-        uint256 amounToReturnTokenA = (reserve0 * userShare) / totalLiqudity;
-        uint256 amounToReturnTokenB = (reserve1 * userShare) / totalLiqudity;
+        uint256 amounToReturnTokenA = userShareTokenA;
+        uint256 amounToReturnTokenB = userShareTokenB;
 
         // Transfer the tokens back to the user.
         require(
@@ -117,7 +105,10 @@ contract BittoSwapPool is Ownable {
         reserve0 -= amounToReturnTokenA;
         reserve1 -= amounToReturnTokenB;
         totalLiqudity -= (amounToReturnTokenA + amounToReturnTokenB);
+
+        // Burn NFT representing the removed liquidity
         liquidityNFT.burn(tokenId);
+
         emit LiquidityRemoved(msg.sender, tokenId);
     }
 
@@ -133,25 +124,30 @@ contract BittoSwapPool is Ownable {
 
         //numberOfBlocks: 마지막으로 보상을 청구한 블록과 현재 블록 사이의 차이
         uint numberOfBlocks = block.number - lastClaimedBlockNumber[tokenId];
+
         //rewardPerBlock: 블록당 보상금
         uint rewardPerBlock = 1e18;
+
         //totalSupply: 전체 유동성 공급량
         uint totalSupply = liquidityNFT.totalSupply();
+
         //userLiquidity: 사용자의 유동성 공급량
-        uint userLiquidity = liquidityNFT.getLiquidity(tokenId);
+        uint userLiquidity = liquidityNFT.getTotalLiqudityAmounts(tokenId);
+
         //userReward: 사용자에게 지급할 보상금
         uint userReward = ((rewardPerBlock * numberOfBlocks) * userLiquidity) /
             totalSupply;
+
         // Update the last claimed block number.
         lastClaimedBlockNumber[tokenId] = block.number;
 
         require(userReward > 0, "No rewards to claim.");
+
+        // Transfer the rewards.
         require(
             rewardToken.transfer(msg.sender, userReward),
             "Reward transfer failed."
         );
-        // Transfer the rewards.
-        rewardToken.transfer(msg.sender, userReward);
     }
 
     // Helper function to calculate absolute value of an integer.

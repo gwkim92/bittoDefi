@@ -2,7 +2,7 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../pool/BittoSwapFactory.sol";
+import "../pool/BittoPoolFactory.sol";
 import "../pool/BittoSwapPool.sol";
 
 contract BittoSwapContract {
@@ -14,9 +14,9 @@ contract BittoSwapContract {
         uint amountOut
     );
 
-    BittoSwapFactory public factory;
+    BittoPoolFactory public factory;
 
-    constructor(BittoSwapFactory _factory) {
+    constructor(BittoPoolFactory _factory) {
         factory = _factory;
     }
 

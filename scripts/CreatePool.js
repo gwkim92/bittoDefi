@@ -3,10 +3,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 const contractDB = require("../dataBase/controller/contractController");
 const addressDB = require("../dataBase/controller/addressController");
-const BittoSwapFactoryArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapFactory.sol/BittoSwapFactory.json");
-const BittoSwapPoolArtifacts = require("../artifacts/contracts/swap/upgradeable/V2/BittoSwapPool.sol/BittoSwapPool.json");
-// npx hardhat run scripts/CreatePool.js --network sepolia
 
+// npx hardhat run scripts/CreatePool.js --network sepolia
 ///require renewal///
 async function setup() {
   const [owner, admin, user] = await ethers.getSigners();
@@ -31,39 +29,30 @@ async function setup() {
   let MockToken4Address = await MockToken4DB.dataValues.address;
   let MockToken5Address = await MockToken5DB.dataValues.address;
 
-  const MultiDataConsumerV3DB = await contractDB.contracts.getContractInfo(
-    "MultiDataConsumerV3"
-  );
-  let MultiDataConsumerV3Abi = await MultiDataConsumerV3DB.dataValues.abi;
-
   const MultiDataConsumerV3ProxyDB = await contractDB.contracts.getContractInfo(
     "MultiDataConsumerV3Proxy"
   );
+  const BittoPoolFactoryDB = await contractDB.contracts.getContractInfo(
+    "BittoPoolFactory"
+  );
+  const BittoPoolLogicDB = await contractDB.contracts.getContractInfo(
+    "BittoSwapPool"
+  );
+
   let MultiDataConsumerV3ProxyAddress = await MultiDataConsumerV3ProxyDB
     .dataValues.address;
+  let MultiDataConsumerV3Abi = await MultiDataConsumerV3ProxyDB.dataValues.abi;
+  let BittoPoolFactoryAbi = await BittoPoolFactoryDB.dataValues.abi;
+  let BittoPoolFactoryAddress = await BittoPoolFactoryDB.dataValues.address;
+  let BittoPoolLogicAbi = await BittoPoolLogicDB.dataValues.abi;
   console.log(
     "MultiDataConsumerV3ProxyAddress : ",
     MultiDataConsumerV3ProxyAddress
   );
-  const BittoSwapFactoryDB = await contractDB.contracts.getContractInfo(
-    "BittoSwapFactory"
-  );
-  let BittoSwapFactoryAbi = await BittoSwapFactoryDB.dataValues.abi;
-  let BittoSwapFactoryAddress = await BittoSwapFactoryDB.dataValues.address;
-
-  const BittoSwapStorageDB = await contractDB.contracts.getContractInfo(
-    "BittoSwapStorage"
-  );
-  let BittoSwapStorageAddress = await BittoSwapStorageDB.dataValues.address;
-
-  const BittoSwapPoolDB = await contractDB.contracts.getContractInfo(
-    "BittoSwapPool"
-  );
-
   console.log("===DataBase Setting End===");
-  const swapFactoryInstance = new ethers.Contract(
-    BittoSwapFactoryAddress,
-    BittoSwapFactoryAbi,
+  const poolFactoryInstance = new ethers.Contract(
+    BittoPoolFactoryAddress,
+    BittoPoolFactoryAbi,
     admin
   );
   const MultiDataConsumerV3ProxyInstance = new ethers.Contract(
@@ -73,10 +62,10 @@ async function setup() {
   );
 
   return {
-    swapFactoryInstance: swapFactoryInstance,
+    poolFactoryInstance: poolFactoryInstance,
     MultiDataConsumerV3ProxyInstance: MultiDataConsumerV3ProxyInstance,
     adminAddress: adminAddress,
-    BittoSwapFactoryAddress: BittoSwapFactoryAddress,
+    BittoPoolFactoryAddress: BittoPoolFactoryAddress,
     tokenAddresses: [
       MockToken1Address,
       MockToken2Address,
@@ -91,23 +80,22 @@ async function setup() {
       linkUsdAddress,
       usdcUsdAddress,
     ],
-    BittoSwapStorageAddress: BittoSwapStorageAddress,
+    BittoPoolLogicAbi: BittoPoolLogicAbi,
   };
 }
 async function createTokenPair(
-  swapFactoryInstance,
+  poolFactoryInstance,
   token1Address,
   token2Address,
   priceFeed1Address,
-  priceFeed2Address,
-  BittoSwapStorageAddress
+  priceFeed2Address
 ) {
-  let result = await swapFactoryInstance.createPool(
+  console.log("===create Pool Start===");
+  let result = await poolFactoryInstance.createPool(
     token1Address,
     token2Address,
     priceFeed1Address, // Assuming this is the price feed for MockToken1
-    priceFeed2Address, // Assuming this is the price feed for MockToken2
-    BittoSwapStorageAddress // The address of the already deployed BittoSwapStorage contract.
+    priceFeed2Address // Assuming this is the price feed for MockToken2
   );
 
   console.log("Transaction hash:", result.hash);
@@ -117,10 +105,10 @@ async function createTokenPair(
   console.log("receipt : ", receipt);
 
   // Get a filter for the "PoolCreated" event.
-  let filter = swapFactoryInstance.filters.PoolCreated();
+  let filter = poolFactoryInstance.filters.PoolCreated();
 
   // Query the contract events with this filter.
-  let events = await swapFactoryInstance.queryFilter(filter, "latest");
+  let events = await poolFactoryInstance.queryFilter(filter, "latest");
 
   if (events.length > 0) {
     let event = events[0];
@@ -143,39 +131,44 @@ async function createTokenPair(
   }
 }
 //db moduel
-async function savePoolToDatabase(contractName, contractVersion, poolAddress) {
+async function savePoolToDatabase(
+  contractName,
+  contractVersion,
+  poolAddress,
+  poolAbi
+) {
   await contractDB.contracts.saveContractInfo(
     "eth",
     `${contractName}_pair`,
     contractVersion,
     poolAddress,
-    BittoSwapPoolArtifacts.abi
+    poolAbi
   );
 }
 
 async function main() {
   try {
     let {
-      swapFactoryInstance,
+      poolFactoryInstance,
       MultiDataConsumerV3ProxyInstance,
       adminAddress,
-      BittoSwapFactoryAddress,
+      BittoPoolFactoryAddress,
       tokenAddresses,
       priceFeedAddresses,
-      BittoSwapStorageAddress,
+      BittoPoolLogicAbi,
     } = await setup();
-
+    let owner = await MultiDataConsumerV3ProxyInstance.owner();
+    console.log(`The owner of the contract is: ${owner}`);
     // Check roles
-
-    console.log("===Check Role Start===");
-    const SWAP_ADMIN_ROLE = ethers.keccak256(
-      ethers.toUtf8Bytes("SWAP_ADMIN_ROLE")
+    console.log("===Factory Role Check Start===");
+    const CREATEPOOL_ROLE = ethers.keccak256(
+      ethers.toUtf8Bytes("CREATEPOOL_ROLE")
     );
-    let hasRole = await swapFactoryInstance.hasRole(
-      SWAP_ADMIN_ROLE,
+    let hasRole = await poolFactoryInstance.hasRole(
+      CREATEPOOL_ROLE,
       adminAddress
     );
-    console.log(`Does the admin have the SWAP_ADMIN_ROLE?: ${hasRole}`);
+    console.log(`Does the admin have the CREATEPOOL_ROLE?: ${hasRole}`);
 
     if (!hasRole) {
       console.error("The provided address does not have the required role!");
@@ -189,35 +182,47 @@ async function main() {
     );
     let hasRolesFactory = await MultiDataConsumerV3ProxyInstance.hasRole(
       FEED_SETTER_ROLE,
-      BittoSwapFactoryAddress
+      BittoPoolFactoryAddress
     );
     console.log(
-      `Does the BittoSwapFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesFactory}`
+      `Does the BittoPoolFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesFactory}`
     );
     let hasRolesAdmin = await MultiDataConsumerV3ProxyInstance.hasRole(
       FEED_SETTER_ROLE,
       adminAddress
     );
     console.log(
-      `Does the BittoSwapFactoryAddress have the FEED_SETTER_ROLE?: ${hasRolesAdmin}`
+      `Does the adminAddress have the FEED_SETTER_ROLE?: ${hasRolesAdmin}`
     );
 
     if (!hasRole) {
       console.error("The provided address does not have the required role!");
       process.exit(1);
     }
+    console.log("===create Token Pair===");
+    console.log(
+      "address check : ",
+      tokenAddresses[0],
+      tokenAddresses[1],
+      priceFeedAddresses[2],
+      priceFeedAddresses[3]
+    );
 
     let pair2Addrress = await createTokenPair(
-      swapFactoryInstance,
-      tokenAddresses[2],
-      tokenAddresses[3],
+      poolFactoryInstance,
+      tokenAddresses[0],
+      tokenAddresses[1],
       priceFeedAddresses[2],
-      priceFeedAddresses[3],
-      BittoSwapStorageAddress
+      priceFeedAddresses[3]
     );
     if (!pair2Addrress) throw new Error("Failed to create the pool.");
 
-    await savePoolToDatabase("eth/link", "1.0", pair2Addrress);
+    await savePoolToDatabase(
+      "ethLink_Pool",
+      "1.0",
+      pair2Addrress,
+      BittoPoolLogicAbi
+    );
   } catch (error) {
     console.error(`Error occurred: ${error.message}`);
   }
