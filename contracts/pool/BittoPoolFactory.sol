@@ -49,7 +49,8 @@ contract BittoPoolFactory is Ownable, AccessControl {
         address _tokenA,
         address _tokenB,
         address feedAddressA,
-        address feedAddressB
+        address feedAddressB,
+        address swapAddress
     ) external onlyRole(CREATEPOOL_ROLE) returns (address pool) {
         require(pools[_tokenA][_tokenB] == address(0), "Pool already exists");
 
@@ -64,12 +65,13 @@ contract BittoPoolFactory is Ownable, AccessControl {
 
         // Generate initialization data for the proxy contract.
         bytes memory initData = abi.encodeWithSignature(
-            "initialize(address,address,address,address,address)",
+            "initialize(address,address,address,address,address,address)",
             _tokenA,
             _tokenB,
             address(liquidityNFT),
             address(rewardToken),
-            address(priceOracle)
+            address(priceOracle),
+            swapAddress
         );
 
         BittoSwapPoolProxy poolProxy = new BittoSwapPoolProxy(

@@ -30,13 +30,22 @@ contract BittoSwapPool is Initializable {
         address _token1,
         address _liqudityNFTAddress,
         address _rewardToken,
-        address _priceOracle
+        address _priceOracle,
+        address _swapContract
     ) external initializer {
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
         liquidityNFT = LiquidityNFT(_liqudityNFTAddress);
         rewardToken = IERC20(_rewardToken);
         priceOracle = IMultiDataConsumerV3(_priceOracle);
+        require(
+            token0.approve(_swapContract, type(uint256).max),
+            "Token0 approval failed"
+        );
+        require(
+            token1.approve(_swapContract, type(uint256).max),
+            "Token0 approval failed"
+        );
     }
 
     function provideLiquidity(uint amountA, uint amountB) external {
@@ -164,3 +173,34 @@ contract BittoSwapPool is Initializable {
         reserve1 = _reserve1;
     }
 }
+
+// // Romberg Integration method for rewards calculation
+
+// 	function calculateRewards(uint tokenId) public view returns (uint256) {
+
+// 		uint256 h = block.number.sub(lastClaimedBlockNumber[tokenId]);
+// 		uint256 totalSupply = liquidityNFT.totalSupply();
+// 		uint256 userLiquidity = liquidityNFT.getTotalLiqudityAmounts(tokenId);
+
+// 		if (h == 0) return 0;
+
+// 		uint256[] memory R = new uint[](h);
+
+// 		for(uint i=0; i<h; i++) {
+// 			R[i] = rewardPerBlock.mul(userLiquidity).div(totalSupply);
+// 			userLiquidity += R[i];
+// 			totalSupply += R[i];
+
+// 			for(uint j=i-1; j>0; j--) {
+// 				R[j] = ((uint(1)<<2*(i-j+1))*R[j+1]-R[j])/((uint(1)<<2*(i-j+1))-1);
+// 			}
+
+// 			R[0] = ((uint(1)<<2*i)*R[1]-R[0])/((uint(1)<<2*i)-1);
+
+// 		}
+
+// 	    return R[0].div(h);
+
+// 	    // The above implementation uses the Romberg Integration method to calculate the rewards for a liquidity provider.
+// 	    // It's a recursive method that uses the trapezoidal rule at step 0 and improves the approximation of integral using Richardson extrapolation.
+// 	}
