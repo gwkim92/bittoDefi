@@ -61,10 +61,17 @@ async function setup() {
     admin
   );
 
+  const swapDB = await contractDB.contracts.getContractInfo(
+    "BittoSwapContract"
+  );
+
+  let swapAddress = await swapDB.dataValues.address;
+
   return {
     poolFactoryInstance: poolFactoryInstance,
     MultiDataConsumerV3ProxyInstance: MultiDataConsumerV3ProxyInstance,
     adminAddress: adminAddress,
+    swapAddress: swapAddress,
     BittoPoolFactoryAddress: BittoPoolFactoryAddress,
     tokenAddresses: [
       MockToken1Address,
@@ -88,14 +95,17 @@ async function createTokenPair(
   token1Address,
   token2Address,
   priceFeed1Address,
-  priceFeed2Address
+  priceFeed2Address,
+  swapAddress
 ) {
   console.log("===create Pool Start===");
+  console.log("swapAddress : ", swapAddress);
   let result = await poolFactoryInstance.createPool(
     token1Address,
     token2Address,
     priceFeed1Address, // Assuming this is the price feed for MockToken1
-    priceFeed2Address // Assuming this is the price feed for MockToken2
+    priceFeed2Address, // Assuming this is the price feed for MockToken2
+    swapAddress
   );
 
   console.log("Transaction hash:", result.hash);
@@ -156,6 +166,7 @@ async function main() {
       tokenAddresses,
       priceFeedAddresses,
       BittoPoolLogicAbi,
+      swapAddress,
     } = await setup();
     let owner = await MultiDataConsumerV3ProxyInstance.owner();
     console.log(`The owner of the contract is: ${owner}`);
@@ -213,7 +224,8 @@ async function main() {
       tokenAddresses[0],
       tokenAddresses[1],
       priceFeedAddresses[2],
-      priceFeedAddresses[3]
+      priceFeedAddresses[3],
+      swapAddress
     );
     if (!pair2Addrress) throw new Error("Failed to create the pool.");
 

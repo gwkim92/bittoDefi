@@ -70,20 +70,39 @@ async function main() {
   // 양수이면 tokenB의 비율이 모자람 =>
   // |절대량| + 추가 토큰a 제공량 => 추가 토큰a 제공량(amountA * tokenPriceA)/tokenPriceB = amountB 만큼 자동 계산 반환 의 반대
   // 0 이면 비율이 같음
+  function absBigInt(bigint) {
+    return bigint < 0n ? -bigint : bigint;
+  }
 
-  const imbalance =
-    currentReserve0 * latestTokenAPrice - currentReserve1 * latestTokenBPrice;
+  let imbalance =
+    (amountA + currentReserve0) * latestTokenAPrice -
+    currentReserve1 * latestTokenBPrice;
+  console.log("비율 계산 : ", imbalance);
+
   let amountB;
 
-  if (imbalance < 0) {
-    amountB =
-      (Math.abs(imbalance) + amountA * latestTokenAPrice) / latestTokenBPrice;
-  } else if (imbalance > 0) {
-    amountB =
-      (amountA * latestTokenAPrice - Math.abs(imbalance)) / latestTokenBPrice;
+  imbalance = absBigInt(imbalance); // 절대값 계산
+
+  if (
+    currentReserve0 * latestTokenAPrice <
+    currentReserve1 * latestTokenBPrice
+  ) {
+    // 음수인 경우 tokenB의 총액량이 크다. tokenA만 채워넣으면 된다.
+    console.log("절대량 음수");
+    amountB = (imbalance + amountA * latestTokenAPrice) / latestTokenBPrice;
+  } else if (
+    currentReserve0 * latestTokenAPrice >
+    currentReserve1 * latestTokenBPrice
+  ) {
+    console.log("절대량 양수");
+    // 양수인 경우 tokenA의 총액량이 크다. tokenA를 넣되 넘치는 양만큼 tokenB를 넣는다.
+    amountB = (amountA * latestTokenAPrice - imbalance) / latestTokenBPrice;
   } else {
+    // 0인 경우
+    console.log("절대량 ==");
     amountB = (amountA * latestTokenAPrice) / latestTokenBPrice;
   }
+  amountB = absBigInt(amountB);
 
   console.log("amountB : ", amountB);
   // Provide liquidity
@@ -159,6 +178,27 @@ async function main() {
     console.log("receipts : ", receipts);
     if (receipts.status == true) {
       console.log("Provided liquidity successfully");
+
+      // After providing liquidity, check the reserves and the ratio
+      const updatedReserve0 = await pool.reserve0();
+      const updatedReserve1 = await pool.reserve1();
+
+      console.log(".updatedReserve0 : ", updatedReserve0);
+      console.log(".updatedReserve1 : ", updatedReserve1);
+
+      const updatedTokenAPrice = await priceOracle.getLatestPrice(
+        token1Address
+      );
+      const updatedTokenBPrice = await priceOracle.getLatestPrice(
+        token2Address
+      );
+      console.log("1 : ", updatedReserve0 * updatedTokenAPrice);
+      console.log("2 : ", updatedReserve1 * updatedTokenBPrice);
+      console.log(
+        "Ratio of Reserve * Price for Token A to Token B: ",
+        (updatedReserve0 * updatedTokenAPrice) /
+          (updatedReserve1 * updatedTokenBPrice)
+      );
     } else {
       throw Error("Failed to provide liquidity", receipts);
     }

@@ -134,6 +134,27 @@ async function main() {
     console.log("receipts : ", receipts);
     if (receipts.status == true) {
       console.log("Provided liquidity successfully");
+
+      // After providing liquidity, check the reserves and the ratio
+      const updatedReserve0 = await pool.reserve0();
+      const updatedReserve1 = await pool.reserve1();
+
+      console.log(".updatedReserve0 : ", updatedReserve0);
+      console.log(".updatedReserve1 : ", updatedReserve1);
+
+      const updatedTokenAPrice = await priceOracle.getLatestPrice(
+        token1Address
+      );
+      const updatedTokenBPrice = await priceOracle.getLatestPrice(
+        token2Address
+      );
+      console.log("1 : ", updatedReserve0 * updatedTokenAPrice);
+      console.log("2 : ", updatedReserve1 * updatedTokenBPrice);
+      console.log(
+        "Ratio of Reserve * Price for Token A to Token B: ",
+        (updatedReserve0 * updatedTokenAPrice) /
+          (updatedReserve1 * updatedTokenBPrice)
+      );
     } else {
       throw Error("Failed to provide liquidity", receipts);
     }
